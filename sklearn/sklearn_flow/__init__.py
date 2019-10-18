@@ -116,12 +116,13 @@ def _is_unfitted_estimator(value):
     if not isinstance(value, BaseEstimator):
         return False
 
+    # TODO: This looks hacky. Is there a better way to know if "get_params" accepts "deep" argument?
     if 'deep' in inspect.signature(value.get_params).parameters:
         params = value.get_params(deep=False)
     else:
         params = value.get_params()
 
-    # Is this really the best way to test if estimator has been fitted?
+    # TODO: Is this really the best way to test if estimator has been fitted?
     for parameter_name in params.keys():
         if parameter_name.endswith('_'):
             return False
@@ -148,8 +149,8 @@ def _encode_hyperparams(pipeline_steps, params):
                 'data': [_transform_to_flow(pipeline_steps, v, None, None) for v in parameter_value],
             }
         else:
-            # We cannot really know which parameters can be tuned and which cannot,
-            # so we put all of them into the flow.
+            # TODO: Is there a way to know which parameters can be tuned and which cannot?
+            #       For now we have to put all of them into the flow.
             hyperparams[parameter_name] = {
                 'type': 'VALUE',
                 'data': _encode_hyperparameter_value(parameter_value),
