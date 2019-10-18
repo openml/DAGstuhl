@@ -9,7 +9,7 @@
     },
     "id": {
       "type": "string",
-      "description": "A static id. It should never change for a given value, even if the value itself is changing. For example, all versions of the same primitive should have the same id. If possible, it should be a UUID generated in any way, but if there is an existing id available, it can be reused."
+      "description": "A static id. It should never change for a given value, even if the value itself is changing. it should be a UUID generated in any way, but if there is an existing id available, it can be reused."
     },
     "pipeline_inputs": {
       "type": "array",
@@ -269,7 +269,7 @@
               "$ref": "#/definitions/data_argument"
             },
             {
-              "$ref": "#/definitions/primitive_argument"
+              "$ref": "#/definitions/step_argument"
             },
             {
               "$ref": "#/definitions/value_argument"
@@ -278,7 +278,7 @@
               "$ref": "#/definitions/data_arguments"
             },
             {
-              "$ref": "#/definitions/primitive_arguments"
+              "$ref": "#/definitions/step_arguments"
             }
           ]
         }
@@ -364,17 +364,17 @@
       ],
       "additionalProperties": true
     },
-    "primitive_argument": {
+    "step_argument": {
       "type": "object",
       "properties": {
         "type": {
           "type": "string",
-          "description": "A primitive instance to be passed as a hyper-parameter. A primitive should be part of a pipeline and is identified by its step.",
-          "enum": ["PRIMITIVE"]
+          "description": "An underlying instance of a step to be passed as a hyper-parameter. A step should be part of a pipeline and is identified by its step.",
+          "enum": ["STEP"]
         },
         "data": {
           "type": "integer",
-          "description": "0-based index identifying a step of which primitive is used as a value."
+          "description": "0-based index identifying a step of which step is used as a value."
         }
       },
       "required": [
@@ -383,19 +383,19 @@
       ],
       "additionalProperties": true
     },
-    "primitive_arguments": {
+    "step_arguments": {
       "type": "object",
       "properties": {
         "type": {
           "type": "string",
-          "description": "A list of primitive instances to be passed as a hyper-parameter. Primitives should be part of a pipeline and are identified by their step.",
-          "enum": ["PRIMITIVE"]
+          "description": "A list of underlying instances of steps to be passed as a hyper-parameter. Steps should be part of a pipeline and are identified by their step.",
+          "enum": ["STEP"]
         },
         "data": {
           "type": "array",
           "items": {
             "type": "integer",
-            "description": "0-based index identifying a step of which primitive is used as a value."
+            "description": "0-based index identifying a step of which step is used as a value."
           },
           "minItems": 1
         }
