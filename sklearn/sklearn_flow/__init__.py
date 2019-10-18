@@ -121,6 +121,7 @@ def _is_unfitted_estimator(value):
     else:
         params = value.get_params()
 
+    # Is this really the best way to test if estimator has been fitted?
     for parameter_name in params.keys():
         if parameter_name.endswith('_'):
             return False
