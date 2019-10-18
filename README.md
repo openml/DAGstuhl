@@ -1,3 +1,5 @@
+# Flow 2 pipeline language
+
 ## Schema
 
 See [https://openml.github.io/flow2/schemas/v0/pipeline.json](https://openml.github.io/flow2/schemas/v0/pipeline.json)
