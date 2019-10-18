@@ -32,7 +32,7 @@ def _feature_union_to_flow(pipeline_steps, transform, name, data_reference):
         'data': step_indices,
     }
 
-    pipeline_step = _transform(transform, hyperparams, name, data_reference)
+    pipeline_step = _transform_step(transform, hyperparams, name, data_reference)
 
     pipeline_steps.append(pipeline_step)
 
@@ -56,7 +56,7 @@ def _column_transformer_to_flow(pipeline_steps, transform, name, data_reference)
         'data': step_indices,
     }
 
-    pipeline_step = _transform(transform, hyperparams, name, data_reference)
+    pipeline_step = _transform_step(transform, hyperparams, name, data_reference)
 
     pipeline_steps.append(pipeline_step)
 
@@ -128,7 +128,7 @@ def _encode_hyperparams(params):
     return hyperparams
 
 
-def _transform(transform, hyperparams, name, data_reference):
+def _transform_step(transform, hyperparams, name, data_reference):
     transform_class = type(transform)
     pipeline_step = {
         'type': 'SKLEARN',
@@ -168,7 +168,7 @@ def _transform_to_flow(pipeline_steps, transform, name, data_reference):
     elif isinstance(transform, ColumnTransformer):
         return _column_transformer_to_flow(pipeline_steps, transform, name, data_reference)
     else:
-        pipeline_step = _transform(transform, _encode_hyperparams(transform.get_params()), name, data_reference)
+        pipeline_step = _transform_step(transform, _encode_hyperparams(transform.get_params()), name, data_reference)
 
         pipeline_steps.append(pipeline_step)
 
@@ -216,16 +216,16 @@ def _decode_hyperparams(flow_steps, hyperparams):
             params[hyperparameter_name] = _decode_hyperparameter_value(hyperparameter['data'])
         elif hyperparameter['type'] == 'STEP':
             if _is_sequence(hyperparameter['data']):
-                params[hyperparameter_name] = [_transform_from_flow(flow_steps, flow_steps[step_index]) for step_index in hyperparameter['data']]
+                params[hyperparameter_name] = [_transform_from_flow_step(flow_steps, flow_steps[step_index]) for step_index in hyperparameter['data']]
             else:
-                params[hyperparameter_name] = _transform_from_flow(flow_steps, flow_steps[hyperparameter['data']])
+                params[hyperparameter_name] = _transform_from_flow_step(flow_steps, flow_steps[hyperparameter['data']])
         else:
             raise ValueError(f"Invalid hyper-parameter type: {hyperparameter['type']}")
 
     return params
 
 
-def _feature_union_from_flow(flow_steps, step, estimator_class):
+def _feature_union_from_flow(flow_steps, step, transform_class):
     params = _decode_hyperparams(flow_steps, step['hyperparams'])
 
     params['transformer_list'] = [
@@ -234,10 +234,10 @@ def _feature_union_from_flow(flow_steps, step, estimator_class):
         in zip(step['hyperparams']['transformer_list']['data'], params['transformer_list'])
     ]
 
-    return _estimator(estimator_class, params)
+    return _transform_instance(transform_class, params)
 
 
-def _column_transformer_from_flow(flow_steps, step, estimator_class):
+def _column_transformer_from_flow(flow_steps, step, transform_class):
     params = _decode_hyperparams(flow_steps, step['hyperparams'])
 
     transformer_columns = params.pop('transformer_columns')
@@ -248,29 +248,29 @@ def _column_transformer_from_flow(flow_steps, step, estimator_class):
         in zip(step['hyperparams']['transformers']['data'], params['transformers'], transformer_columns)
     ]
 
-    return _estimator(estimator_class, params)
+    return _transform_instance(transform_class, params)
 
 
-def _estimator(estimator_class, params):
-    return estimator_class(**params)
+def _transform_instance(transform_class, params):
+    return transform_class(**params)
 
 
-def _estimator_class_from_flow(flow_steps, step, estimator_class):
-    if issubclass(estimator_class, FeatureUnion):
-        return _feature_union_from_flow(flow_steps, step, estimator_class)
-    elif issubclass(estimator_class, ColumnTransformer):
-        return _column_transformer_from_flow(flow_steps, step, estimator_class)
+def _transform_from_class(flow_steps, step, transform_class):
+    if issubclass(transform_class, FeatureUnion):
+        return _feature_union_from_flow(flow_steps, step, transform_class)
+    elif issubclass(transform_class, ColumnTransformer):
+        return _column_transformer_from_flow(flow_steps, step, transform_class)
     else:
-        return _estimator(estimator_class, _decode_hyperparams(flow_steps, step['hyperparams']))
+        return _transform_instance(transform_class, _decode_hyperparams(flow_steps, step['hyperparams']))
 
 
-def _transform_from_flow(flow_steps, step):
+def _transform_from_flow_step(flow_steps, step):
     if step['type'] == 'SKLEARN':
         python_path = step['estimator']['python_path']
         (module_path, _, class_name) = python_path.rpartition('.')
         module_ = importlib.import_module(module_path)
-        estimator_class = getattr(module_, class_name)
-        return _estimator_class_from_flow(flow_steps, step, estimator_class)
+        transform_class = getattr(module_, class_name)
+        return _transform_from_class(flow_steps, step, transform_class)
     elif step['type'] == 'SUBPIPELINE':
         return from_flow(step['pipeline'])
     else:
@@ -309,7 +309,7 @@ def from_flow(flow_pipeline):
             if 'name' not in step:
                 raise ValueError(f"Missing step name for step {i}.")
 
-            pipeline_steps.append((step['name'], _transform_from_flow(flow_pipeline['steps'], step)))
+            pipeline_steps.append((step['name'], _transform_from_flow_step(flow_pipeline['steps'], step)))
 
             current_data_reference = f'steps.{i}.output'
 
