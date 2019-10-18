@@ -1,0 +1,383 @@
+{
+  "schema": "https://openml.github.io/flow2/schemas/v0/pipeline.json",
+  "id": "21eeed33-b506-4ffb-b8f8-5542a5a51d3e",
+  "inputs": [
+    {
+      "name": "pipeline input"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "pipeline output",
+      "data": "steps.3.output"
+    }
+  ],
+  "steps": [
+    {
+      "type": "SUBPIPELINE",
+      "pipeline": {
+        "schema": "https://openml.github.io/flow2/schemas/v0/pipeline.json",
+        "id": "3ec37661-825f-4fcb-8bee-3a7a10b827e5",
+        "inputs": [
+          {
+            "name": "pipeline input"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "pipeline output",
+            "data": "steps.1.output"
+          }
+        ],
+        "steps": [
+          {
+            "type": "SKLEARN",
+            "estimator": {
+              "python_path": "sklearn.impute._base.SimpleImputer",
+              "version": "0.21.3"
+            },
+            "name": "imputer",
+            "hyperparams": {
+              "add_indicator": {
+                "type": "VALUE",
+                "data": false
+              },
+              "copy": {
+                "type": "VALUE",
+                "data": true
+              },
+              "fill_value": {
+                "type": "VALUE",
+                "data": null
+              },
+              "missing_values": {
+                "type": "VALUE",
+                "data": {
+                  "encoding": "pickle",
+                  "value": "gANHf/gAAAAAAAAu"
+                }
+              },
+              "strategy": {
+                "type": "VALUE",
+                "data": "median"
+              },
+              "verbose": {
+                "type": "VALUE",
+                "data": 0
+              }
+            },
+            "arguments": {
+              "input": {
+                "type": "CONTAINER",
+                "data": "inputs.0"
+              }
+            },
+            "outputs": [
+              {
+                "id": "output"
+              }
+            ]
+          },
+          {
+            "type": "SKLEARN",
+            "estimator": {
+              "python_path": "sklearn.preprocessing.data.StandardScaler",
+              "version": "0.21.3"
+            },
+            "name": "scaler",
+            "hyperparams": {
+              "copy": {
+                "type": "VALUE",
+                "data": true
+              },
+              "with_mean": {
+                "type": "VALUE",
+                "data": true
+              },
+              "with_std": {
+                "type": "VALUE",
+                "data": true
+              }
+            },
+            "arguments": {
+              "input": {
+                "type": "CONTAINER",
+                "data": "steps.0.output"
+              }
+            },
+            "outputs": [
+              {
+                "id": "output"
+              }
+            ]
+          }
+        ]
+      },
+      "name": "num"
+    },
+    {
+      "type": "SUBPIPELINE",
+      "pipeline": {
+        "schema": "https://openml.github.io/flow2/schemas/v0/pipeline.json",
+        "id": "b566c6ea-2847-4254-8d39-553069308d3b",
+        "inputs": [
+          {
+            "name": "pipeline input"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "pipeline output",
+            "data": "steps.1.output"
+          }
+        ],
+        "steps": [
+          {
+            "type": "SKLEARN",
+            "estimator": {
+              "python_path": "sklearn.impute._base.SimpleImputer",
+              "version": "0.21.3"
+            },
+            "name": "imputer",
+            "hyperparams": {
+              "add_indicator": {
+                "type": "VALUE",
+                "data": false
+              },
+              "copy": {
+                "type": "VALUE",
+                "data": true
+              },
+              "fill_value": {
+                "type": "VALUE",
+                "data": "missing"
+              },
+              "missing_values": {
+                "type": "VALUE",
+                "data": {
+                  "encoding": "pickle",
+                  "value": "gANHf/gAAAAAAAAu"
+                }
+              },
+              "strategy": {
+                "type": "VALUE",
+                "data": "constant"
+              },
+              "verbose": {
+                "type": "VALUE",
+                "data": 0
+              }
+            },
+            "arguments": {
+              "input": {
+                "type": "CONTAINER",
+                "data": "inputs.0"
+              }
+            },
+            "outputs": [
+              {
+                "id": "output"
+              }
+            ]
+          },
+          {
+            "type": "SKLEARN",
+            "estimator": {
+              "python_path": "sklearn.preprocessing._encoders.OneHotEncoder",
+              "version": "0.21.3"
+            },
+            "name": "onehot",
+            "hyperparams": {
+              "categorical_features": {
+                "type": "VALUE",
+                "data": null
+              },
+              "categories": {
+                "type": "VALUE",
+                "data": null
+              },
+              "drop": {
+                "type": "VALUE",
+                "data": null
+              },
+              "dtype": {
+                "type": "VALUE",
+                "data": {
+                  "encoding": "pickle",
+                  "value": "gANjbnVtcHkKZmxvYXQ2NApxAC4="
+                }
+              },
+              "handle_unknown": {
+                "type": "VALUE",
+                "data": "ignore"
+              },
+              "n_values": {
+                "type": "VALUE",
+                "data": null
+              },
+              "sparse": {
+                "type": "VALUE",
+                "data": true
+              }
+            },
+            "arguments": {
+              "input": {
+                "type": "CONTAINER",
+                "data": "steps.0.output"
+              }
+            },
+            "outputs": [
+              {
+                "id": "output"
+              }
+            ]
+          }
+        ]
+      },
+      "name": "cat"
+    },
+    {
+      "type": "SKLEARN",
+      "estimator": {
+        "python_path": "sklearn.compose._column_transformer.ColumnTransformer",
+        "version": "0.21.3"
+      },
+      "name": "preprocessor",
+      "hyperparams": {
+        "n_jobs": {
+          "type": "VALUE",
+          "data": null
+        },
+        "remainder": {
+          "type": "VALUE",
+          "data": "drop"
+        },
+        "sparse_threshold": {
+          "type": "VALUE",
+          "data": 0.3
+        },
+        "transformer_weights": {
+          "type": "VALUE",
+          "data": null
+        },
+        "verbose": {
+          "type": "VALUE",
+          "data": false
+        },
+        "transformer_columns": {
+          "type": "VALUE",
+          "data": [
+            [
+              "age",
+              "fare"
+            ],
+            [
+              "embarked",
+              "sex",
+              "pclass"
+            ]
+          ]
+        },
+        "transformers": {
+          "type": "STEP",
+          "data": [
+            0,
+            1
+          ]
+        }
+      },
+      "arguments": {
+        "input": {
+          "type": "CONTAINER",
+          "data": "inputs.0"
+        }
+      },
+      "outputs": [
+        {
+          "id": "output"
+        }
+      ]
+    },
+    {
+      "type": "SKLEARN",
+      "estimator": {
+        "python_path": "sklearn.linear_model.logistic.LogisticRegression",
+        "version": "0.21.3"
+      },
+      "name": "classifier",
+      "hyperparams": {
+        "C": {
+          "type": "VALUE",
+          "data": 1.0
+        },
+        "class_weight": {
+          "type": "VALUE",
+          "data": null
+        },
+        "dual": {
+          "type": "VALUE",
+          "data": false
+        },
+        "fit_intercept": {
+          "type": "VALUE",
+          "data": true
+        },
+        "intercept_scaling": {
+          "type": "VALUE",
+          "data": 1
+        },
+        "l1_ratio": {
+          "type": "VALUE",
+          "data": null
+        },
+        "max_iter": {
+          "type": "VALUE",
+          "data": 100
+        },
+        "multi_class": {
+          "type": "VALUE",
+          "data": "warn"
+        },
+        "n_jobs": {
+          "type": "VALUE",
+          "data": null
+        },
+        "penalty": {
+          "type": "VALUE",
+          "data": "l2"
+        },
+        "random_state": {
+          "type": "VALUE",
+          "data": null
+        },
+        "solver": {
+          "type": "VALUE",
+          "data": "lbfgs"
+        },
+        "tol": {
+          "type": "VALUE",
+          "data": 0.0001
+        },
+        "verbose": {
+          "type": "VALUE",
+          "data": 0
+        },
+        "warm_start": {
+          "type": "VALUE",
+          "data": false
+        }
+      },
+      "arguments": {
+        "input": {
+          "type": "CONTAINER",
+          "data": "steps.2.output"
+        }
+      },
+      "outputs": [
+        {
+          "id": "output"
+        }
+      ]
+    }
+  ]
+}
