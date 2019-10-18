@@ -1,6 +1,7 @@
 import base64
 import decimal
 import importlib
+import inspect
 import numbers
 import pickle
 import typing
@@ -9,6 +10,7 @@ import uuid
 import numpy
 
 import sklearn
+from sklearn.base import BaseEstimator
 from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.compose import ColumnTransformer
 
@@ -21,7 +23,7 @@ def _feature_union_to_flow(pipeline_steps, transform, name, data_reference):
     params = transform.get_params(deep=False)
     transformers = params.pop('transformer_list')
 
-    hyperparams = _encode_hyperparams(params)
+    hyperparams = _encode_hyperparams(pipeline_steps, params)
 
     step_indices = []
     for transformer_name, transformer in transformers:
@@ -45,7 +47,7 @@ def _column_transformer_to_flow(pipeline_steps, transform, name, data_reference)
 
     params['transformer_columns'] = [columns for (transformer_name, transformer, columns) in transformers]
 
-    hyperparams = _encode_hyperparams(params)
+    hyperparams = _encode_hyperparams(pipeline_steps, params)
 
     step_indices = []
     for transformer_name, transformer, columns in transformers:
@@ -110,7 +112,23 @@ def _encode_hyperparameter_value(parameter_value):
         }
 
 
-def _encode_hyperparams(params):
+def _is_unfitted_estimator(value):
+    if not isinstance(value, BaseEstimator):
+        return False
+
+    if 'deep' in inspect.signature(value.get_params).parameters:
+        params = value.get_params(deep=False)
+    else:
+        params = value.get_params()
+
+    for parameter_name in params.keys():
+        if parameter_name.endswith('_'):
+            return False
+
+    return True
+
+
+def _encode_hyperparams(pipeline_steps, params):
     hyperparams = {}
     for parameter_name, parameter_value in params.items():
         if parameter_name.startswith('_'):
@@ -118,12 +136,23 @@ def _encode_hyperparams(params):
         if parameter_name.endswith('_'):
             raise ValueError(f"Encountered an already fitted estimator.")
 
-        # We cannot really know which parameters can be tuned and which cannot,
-        # so we put all of them into the flow.
-        hyperparams[parameter_name] = {
-            'type': 'VALUE',
-            'data': _encode_hyperparameter_value(parameter_value),
-        }
+        if _is_unfitted_estimator(parameter_value):
+            hyperparams[parameter_name] = {
+                'type': 'STEP',
+                'data': _transform_to_flow(pipeline_steps, parameter_value, None, None),
+            }
+        elif _is_sequence(parameter_value) and all(_is_unfitted_estimator(v) for v in parameter_value):
+            hyperparams[parameter_name] = {
+                'type': 'STEP',
+                'data': [_transform_to_flow(pipeline_steps, v, None, None) for v in parameter_value],
+            }
+        else:
+            # We cannot really know which parameters can be tuned and which cannot,
+            # so we put all of them into the flow.
+            hyperparams[parameter_name] = {
+                'type': 'VALUE',
+                'data': _encode_hyperparameter_value(parameter_value),
+            }
 
     return hyperparams
 
@@ -168,7 +197,7 @@ def _transform_to_flow(pipeline_steps, transform, name, data_reference):
     elif isinstance(transform, ColumnTransformer):
         return _column_transformer_to_flow(pipeline_steps, transform, name, data_reference)
     else:
-        pipeline_step = _transform_step(transform, _encode_hyperparams(transform.get_params()), name, data_reference)
+        pipeline_step = _transform_step(transform, _encode_hyperparams(pipeline_steps, transform.get_params()), name, data_reference)
 
         pipeline_steps.append(pipeline_step)
 
