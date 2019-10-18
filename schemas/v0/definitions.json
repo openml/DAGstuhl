@@ -1,0 +1,428 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema",
+  "id": "https://openml.github.io/flow2/schemas/v0/definitions.json",
+  "definitions": {
+    "schema": {
+      "type": "string",
+      "description": "A URI representing a metadata.datadrivendiscovery.org schema and version to which metadata conforms.",
+      "format": "uri"
+    },
+    "id": {
+      "type": "string",
+      "description": "A static id. It should never change for a given value, even if the value itself is changing. For example, all versions of the same primitive should have the same id. If possible, it should be a UUID generated in any way, but if there is an existing id available, it can be reused."
+    },
+    "pipeline_inputs": {
+      "type": "array",
+      "description": "Inputs to a pipeline. The order of inputs matter. Inputs are referenced by steps using a data reference of the form \"inputs.X\", where \"X\" is a 0-based index of the input.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "$ref": "#/definitions/name"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "pipeline_outputs": {
+      "type": "array",
+      "description": "Outputs from a pipeline. The order of outputs matter. Each output references an output of a step and in this way makes that step output a pipeline output as well. Data references of outputs themselves are of the form \"outputs.X\", where \"X\" is a 0-based index of the output.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "$ref": "#/definitions/name"
+          },
+          "data": {
+            "$ref": "#/definitions/data_reference"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "pipeline_steps": {
+      "type": "array",
+      "description": "Steps defining pipeline's logic.",
+      "items": {
+        "type": "object",
+        "anyOf": [
+          {
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "A step which runs another pipeline.",
+                "enum": ["SUBPIPELINE"]
+              },
+              "pipeline": {
+                "allOf": [{"$ref": "#/definitions/pipeline_or_pipeline_reference"}],
+                "description": "A pipeline to run at this step, of pipelines known to the system."
+              },
+              "inputs": {
+                "type": "array",
+                "description": "Mapping between data references available in the context of the outer pipeline to inputs of sub-pipeline, in order.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "allOf": [{"$ref": "#/definitions/data_reference"}],
+                      "description": "Data reference, probably of an output of a step or outer pipeline input, mapped to sub-pipeline's inputs in order."
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": true
+                },
+                "minItems": 1
+              },
+              "outputs": {
+                "type": "array",
+                "description": "Mapping between outputs of a sub-pipeline to names under which they should be exposed as outputs of this step, in order. For example: [{\"id\": \"predictions\"}] would map the first output of a sub-pipeline to a data reference \"steps.X.predictions\" where \"X\" is the step number of a given sub-pipeline step.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "The name used in constructing the step's output data reference. If not provided, this output is skipped."
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": true
+                },
+                "minItems": 1
+              }
+            },
+            "required": [
+              "type",
+              "pipeline",
+              "inputs",
+              "outputs"
+            ]
+          },
+          {
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "This step is used to represent a pipeline template which can be used to generate full pipelines. Additional properties to further specify the placeholder constraints are allowed.",
+                "enum": ["PLACEHOLDER"]
+              },
+              "inputs": {
+                "type": "array",
+                "description": "Mapping between data references available in the context of the outer pipeline which can be used as inputs to resulting sub-pipeline, in order. Resulting sub-pipeline does not have to use all the inputs, but it cannot use any other inputs.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "allOf": [{"$ref": "#/definitions/data_reference"}],
+                      "description": "Data reference, probably of an output of a step or outer pipeline input, mapped to resulting sub-pipeline's inputs in order."
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": true
+                },
+                "minItems": 1
+              },
+              "outputs": {
+                "type": "array",
+                "description": "Mapping between outputs of a resulting sub-pipeline to names under which they should be exposed as outputs of this step, in order. For example: [{\"id\": \"predictions\"}] would map the first output of a resulting sub-pipeline to a data reference \"steps.X.predictions\" where \"X\" is the step number of a given placeholder step.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "The name used in constructing the step's output data reference."
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": true
+                },
+                "minItems": 1
+              }
+            },
+            "required": [
+              "type",
+              "inputs",
+              "outputs"
+            ]
+          },
+          {
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "A type of the step. Supported types depend on the programming language and runtime. Each such step type might use additional step properties to describe or identify what exactly is run for this step."
+              },
+              "arguments": {
+                "allOf": [{"$ref": "#/definitions/arguments"}],
+                "description": "Arguments to a step as a whole. Not all arguments defined by a step have to be specified here. A step might be able to run without all arguments provided."
+              },
+              "outputs": {
+                "type": "array",
+                "description": "A list of outputs of this step. How are outputs mapped to what is internally run is left to the step type to define (e.g., by order or by \"id\"). Outside of a step outputs are mapped to data references of the form \"steps.X.ID\", where \"X\" is the step number of the step, and \"ID\" is output's name.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "The name used in constructing the step's output data reference."
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": true
+                },
+                "minItems": 1
+              },
+              "hyperparams": {
+                "allOf": [{"$ref": "#/definitions/hyperparams"}],
+                "description": "Only those hyper-parameters which should be fixed as part of the pipeline should be specified here, e.g., control hyper-parameters which control the logic of the step, e.g., \"drop column number 3\". Any hyper-parameter specified here should not be further modified (e.g., tuned). Author of a pipeline decides which hyper-parameters are which."
+              }
+            },
+            "required": [
+              "type"
+            ]
+          }
+        ],
+        "additionalProperties": true
+      },
+      "minItems": 1
+    },
+    "name": {
+      "type": "string",
+      "description": "A human readable name in an unspecified language or format."
+    },
+    "data_reference": {
+      "type": "string",
+      "description": "Data reference is a string which identifies an output of a step or a pipeline input and forms a data-flow connection between data available and an input to a step.",
+      "examples": [
+        "steps.0.predictions",
+        "inputs.1"
+      ]
+    },
+    "pipeline_or_pipeline_reference": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/pipeline_reference"
+        },
+        {
+          "$ref": "https://openml.github.io/flow2/schemas/v0/pipeline.json"
+        }
+      ]
+    },
+    "pipeline_reference": {
+      "allOf": [{"$ref": "#/definitions/document_reference"}],
+      "description": "A reference to a pipeline."
+    },
+    "document_reference": {
+      "description": "A reference to another document.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/id"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": true
+    },
+    "arguments": {
+      "type": "object",
+      "description": "A mapping between step's arguments and their values. How are arguments mapped to what is internally run is left to the step type to define.",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z_0-9]*$": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/container_argument"
+            },
+            {
+              "$ref": "#/definitions/container_arguments"
+            },
+            {
+              "$ref": "#/definitions/data_argument"
+            }
+          ]
+        }
+      }
+    },
+    "hyperparams": {
+      "type": "object",
+      "description": "A mapping between step's hyper-parameters and their values.",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z_0-9]*([.][A-Za-z][A-Za-z_0-9]*)*$": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/container_argument"
+            },
+            {
+              "$ref": "#/definitions/data_argument"
+            },
+            {
+              "$ref": "#/definitions/primitive_argument"
+            },
+            {
+              "$ref": "#/definitions/value_argument"
+            },
+            {
+              "$ref": "#/definitions/data_arguments"
+            },
+            {
+              "$ref": "#/definitions/primitive_arguments"
+            }
+          ]
+        }
+      }
+    },
+    "container_argument": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "A regular container type output from another step or pipeline's input.",
+          "enum": ["CONTAINER"]
+        },
+        "data": {
+          "$ref": "#/definitions/data_reference"
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ],
+      "additionalProperties": true
+    },
+    "container_arguments": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "A list of regular container type outputs from another steps or pipeline's inputs.",
+          "enum": ["CONTAINER"]
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/data_reference"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ],
+      "additionalProperties": true
+    },
+    "data_argument": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "A singleton output from another step in a pipeline.",
+          "enum": ["DATA"]
+        },
+        "data": {
+          "$ref": "#/definitions/data_reference"
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ],
+      "additionalProperties": true
+    },
+    "data_arguments": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "A list of singleton outputs from other steps in a pipeline.",
+          "enum": ["DATA"]
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/data_reference"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ],
+      "additionalProperties": true
+    },
+    "primitive_argument": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "A primitive instance to be passed as a hyper-parameter. A primitive should be part of a pipeline and is identified by its step.",
+          "enum": ["PRIMITIVE"]
+        },
+        "data": {
+          "type": "integer",
+          "description": "0-based index identifying a step of which primitive is used as a value."
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ],
+      "additionalProperties": true
+    },
+    "primitive_arguments": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "A list of primitive instances to be passed as a hyper-parameter. Primitives should be part of a pipeline and are identified by their step.",
+          "enum": ["PRIMITIVE"]
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "description": "0-based index identifying a step of which primitive is used as a value."
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ],
+      "additionalProperties": true
+    },
+    "value_argument": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "A constant value of a hyper-parameter. Every step type's implementation which uses hyper-parameters is responsible to convert hyper-parameter values to JSON-compatible structures and back.",
+          "enum": ["VALUE"]
+        },
+        "data": {
+          "description": "Hyper-parameter value as converted to a JSON-compatible structure by an underlying step type's implementation."
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ],
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema",
+  "id": "https://openml.github.io/flow2/schemas/v0/pipeline.json",
+  "title": "Pipeline description",
+  "description": "Schema for a description of a pipeline.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "$ref": "https://openml.github.io/flow2/schemas/v0/definitions.json#/definitions/schema"
+    },
+    "id": {
+      "$ref": "https://openml.github.io/flow2/schemas/v0/definitions.json#/definitions/id"
+    },
+    "inputs": {
+      "$ref": "https://openml.github.io/flow2/schemas/v0/definitions.json#/definitions/pipeline_inputs"
+    },
+    "outputs": {
+      "$ref": "https://openml.github.io/flow2/schemas/v0/definitions.json#/definitions/pipeline_outputs"
+    },
+    "steps": {
+      "$ref": "https://openml.github.io/flow2/schemas/v0/definitions.json#/definitions/pipeline_steps"
+    }
+  },
+  "required": [
+    "schema",
+    "id",
+    "inputs",
+    "outputs",
+    "steps"
+  ],
+  "additionalProperties": true
+}
