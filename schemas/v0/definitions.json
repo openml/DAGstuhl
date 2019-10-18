@@ -99,9 +99,7 @@
             },
             "required": [
               "type",
-              "pipeline",
-              "inputs",
-              "outputs"
+              "pipeline"
             ]
           },
           {
