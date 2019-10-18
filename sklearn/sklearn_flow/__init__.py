@@ -91,7 +91,7 @@ def _pipeline_to_flow(pipeline_steps, transform, name, data_reference):
 
 
 def _encode_hyperparameter_value(parameter_value):
-    if _is_sequence(parameter_value, list):
+    if _is_sequence(parameter_value):
         return [_encode_hyperparameter_value(value) for value in parameter_value]
     elif isinstance(parameter_value, (str, int, bool, type(None), numpy.integer, numbers.Integral)):
         return parameter_value
@@ -219,6 +219,8 @@ def _decode_hyperparams(flow_steps, hyperparams):
                 params[hyperparameter_name] = [_transform_from_flow(flow_steps, flow_steps[step_index]) for step_index in hyperparameter['data']]
             else:
                 params[hyperparameter_name] = _transform_from_flow(flow_steps, flow_steps[hyperparameter['data']])
+        else:
+            raise ValueError(f"Invalid hyper-parameter type: {hyperparameter['type']}")
 
     return params
 
@@ -226,7 +228,11 @@ def _decode_hyperparams(flow_steps, hyperparams):
 def _feature_union_from_flow(flow_steps, step, estimator_class):
     params = _decode_hyperparams(flow_steps, step['hyperparams'])
 
-    params['transformer_list'] = [(flow_steps[step_index]['name'], transformer) for step_index, transformer in zip(step['hyperparams']['transformer_list']['data'], params['transformer_list'])]
+    params['transformer_list'] = [
+        (flow_steps[step_index]['name'], transformer)
+        for step_index, transformer
+        in zip(step['hyperparams']['transformer_list']['data'], params['transformer_list'])
+    ]
 
     return _estimator(estimator_class, params)
 
@@ -236,7 +242,11 @@ def _column_transformer_from_flow(flow_steps, step, estimator_class):
 
     transformer_columns = params.pop('transformer_columns')
 
-    params['transformers'] = [(flow_steps[step_index]['name'], transformer, columns) for step_index, transformer, columns in zip(step['hyperparams']['transformers']['data'], params['transformers'], transformer_columns)]
+    params['transformers'] = [
+        (flow_steps[step_index]['name'], transformer, columns)
+        for step_index, transformer, columns
+        in zip(step['hyperparams']['transformers']['data'], params['transformers'], transformer_columns)
+    ]
 
     return _estimator(estimator_class, params)
 
