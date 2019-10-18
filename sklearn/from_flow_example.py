@@ -16,10 +16,8 @@ from sklearn_flow import from_flow
 np.random.seed(0)
 
 # Read data from Titanic dataset.
-titanic_url = (
-    'https://raw.githubusercontent.com/amueller/'
-    'scipy-2017-sklearn/091d371/notebooks/datasets/titanic3.csv',
-)
+titanic_url = 'https://raw.githubusercontent.com/amueller/scipy-2017-sklearn/091d371/notebooks/datasets/titanic3.csv'
+
 data = pd.read_csv(titanic_url)
 
 X = data.drop('survived', axis=1)

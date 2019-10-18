@@ -1,7 +1,9 @@
 import base64
 import decimal
+import importlib
 import numbers
 import pickle
+import typing
 import uuid
 
 import numpy
@@ -11,14 +13,18 @@ from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.compose import ColumnTransformer
 
 
+def _is_sequence(value):
+    return isinstance(value, typing.Sequence) and not isinstance(value, str)
+
+
 def _feature_union_to_flow(pipeline_steps, transform, name, data_reference):
     params = transform.get_params(deep=False)
     transformers = params.pop('transformer_list')
 
-    hyperparams = _encode_hyperparams(transform, params)
+    hyperparams = _encode_hyperparams(params)
 
     step_indices = []
-    for transformer_name, transformer, columns in transformers:
+    for transformer_name, transformer in transformers:
         step_indices.append(_transform_to_flow(pipeline_steps, transformer, transformer_name, None))
 
     hyperparams['transformer_list'] = {
@@ -39,7 +45,7 @@ def _column_transformer_to_flow(pipeline_steps, transform, name, data_reference)
 
     params['transformer_columns'] = [columns for (transformer_name, transformer, columns) in transformers]
 
-    hyperparams = _encode_hyperparams(transform, params)
+    hyperparams = _encode_hyperparams(params)
 
     step_indices = []
     for transformer_name, transformer, columns in transformers:
@@ -85,7 +91,7 @@ def _pipeline_to_flow(pipeline_steps, transform, name, data_reference):
 
 
 def _encode_hyperparameter_value(parameter_value):
-    if isinstance(parameter_value, list):
+    if _is_sequence(parameter_value, list):
         return [_encode_hyperparameter_value(value) for value in parameter_value]
     elif isinstance(parameter_value, (str, int, bool, type(None), numpy.integer, numbers.Integral)):
         return parameter_value
@@ -104,13 +110,13 @@ def _encode_hyperparameter_value(parameter_value):
         }
 
 
-def _encode_hyperparams(transform, params):
+def _encode_hyperparams(params):
     hyperparams = {}
     for parameter_name, parameter_value in params.items():
         if parameter_name.startswith('_'):
             continue
         if parameter_name.endswith('_'):
-            raise ValueError(f"Encountered an already fitted estimator: {transform}")
+            raise ValueError(f"Encountered an already fitted estimator.")
 
         # We cannot really know which parameters can be tuned and which cannot,
         # so we put all of them into the flow.
@@ -162,7 +168,7 @@ def _transform_to_flow(pipeline_steps, transform, name, data_reference):
     elif isinstance(transform, ColumnTransformer):
         return _column_transformer_to_flow(pipeline_steps, transform, name, data_reference)
     else:
-        pipeline_step = _transform(transform, _encode_hyperparams(transform, transform.get_params()), name, data_reference)
+        pipeline_step = _transform(transform, _encode_hyperparams(transform.get_params()), name, data_reference)
 
         pipeline_steps.append(pipeline_step)
 
@@ -191,5 +197,113 @@ def to_flow(sklearn_pipeline):
     }
 
 
+def _decode_hyperparameter_value(hyperparameter_value):
+    if _is_sequence(hyperparameter_value):
+        return [_decode_hyperparameter_value(value) for value in hyperparameter_value]
+    elif isinstance(hyperparameter_value, typing.Mapping):
+        if hyperparameter_value.get('encoding', None) == 'pickle':
+            return pickle.loads(base64.b64decode(hyperparameter_value['value'].encode('utf8')))
+        else:
+            raise ValueError(f"Invalid hyper-parameter value encoding: {hyperparameter_value.get('encoding', None)}")
+    else:
+        return hyperparameter_value
+
+
+def _decode_hyperparams(flow_steps, hyperparams):
+    params = {}
+    for hyperparameter_name, hyperparameter in hyperparams.items():
+        if hyperparameter['type'] == 'VALUE':
+            params[hyperparameter_name] = _decode_hyperparameter_value(hyperparameter['data'])
+        elif hyperparameter['type'] == 'STEP':
+            if _is_sequence(hyperparameter['data']):
+                params[hyperparameter_name] = [_transform_from_flow(flow_steps, flow_steps[step_index]) for step_index in hyperparameter['data']]
+            else:
+                params[hyperparameter_name] = _transform_from_flow(flow_steps, flow_steps[hyperparameter['data']])
+
+    return params
+
+
+def _feature_union_from_flow(flow_steps, step, estimator_class):
+    params = _decode_hyperparams(flow_steps, step['hyperparams'])
+
+    params['transformer_list'] = [(flow_steps[step_index]['name'], transformer) for step_index, transformer in zip(step['hyperparams']['transformer_list']['data'], params['transformer_list'])]
+
+    return _estimator(estimator_class, params)
+
+
+def _column_transformer_from_flow(flow_steps, step, estimator_class):
+    params = _decode_hyperparams(flow_steps, step['hyperparams'])
+
+    transformer_columns = params.pop('transformer_columns')
+
+    params['transformers'] = [(flow_steps[step_index]['name'], transformer, columns) for step_index, transformer, columns in zip(step['hyperparams']['transformers']['data'], params['transformers'], transformer_columns)]
+
+    return _estimator(estimator_class, params)
+
+
+def _estimator(estimator_class, params):
+    return estimator_class(**params)
+
+
+def _estimator_class_from_flow(flow_steps, step, estimator_class):
+    if issubclass(estimator_class, FeatureUnion):
+        return _feature_union_from_flow(flow_steps, step, estimator_class)
+    elif issubclass(estimator_class, ColumnTransformer):
+        return _column_transformer_from_flow(flow_steps, step, estimator_class)
+    else:
+        return _estimator(estimator_class, _decode_hyperparams(flow_steps, step['hyperparams']))
+
+
+def _transform_from_flow(flow_steps, step):
+    if step['type'] == 'SKLEARN':
+        python_path = step['estimator']['python_path']
+        (module_path, _, class_name) = python_path.rpartition('.')
+        module_ = importlib.import_module(module_path)
+        estimator_class = getattr(module_, class_name)
+        return _estimator_class_from_flow(flow_steps, step, estimator_class)
+    elif step['type'] == 'SUBPIPELINE':
+        return from_flow(step['pipeline'])
+    else:
+        raise ValueError(f"Invalid step type: {step['type']}")
+
+
 def from_flow(flow_pipeline):
-    pass
+    pipeline_steps = []
+
+    if len(flow_pipeline['inputs']) != 1:
+        raise ValueError(f"Invalid number of pipeline inputs: {len(flow_pipeline['inputs'])}")
+    if len(flow_pipeline['outputs']) != 1:
+        raise ValueError(f"Invalid number of pipeline outputs: {len(flow_pipeline['outputs'])}")
+
+    current_data_reference = 'inputs.0'
+    for i, step in enumerate(flow_pipeline['steps']):
+        arguments = step.get('arguments', {})
+        if arguments:
+            if set(arguments.keys()) == {'input'}:
+                if arguments['input']['type'] != 'CONTAINER':
+                    raise ValueError(f"Invalid input type for step {i}: {arguments['input']['type']}")
+                if arguments['input']['data'] != current_data_reference:
+                    raise ValueError(f"Expected input data reference '{current_data_reference}' does not match provided input data reference '{arguments['input']['data']}' for step {i}.")
+            else:
+                raise ValueError(f"Invalid step arguments for step {i}: {sorted(set(arguments.keys()))}")
+
+        outputs = step.get('outputs', {})
+        if outputs:
+            if len(outputs) == 1:
+                if outputs[0]['id'] != 'output':
+                    raise ValueError(f"Invalid output data id for step {i}: {outputs[0]['id']}")
+            else:
+                raise ValueError(f"Invalid number of step outputs for step {i}: {len(outputs)}")
+
+        if arguments and outputs:
+            if 'name' not in step:
+                raise ValueError(f"Missing step name for step {i}.")
+
+            pipeline_steps.append((step['name'], _transform_from_flow(flow_pipeline['steps'], step)))
+
+            current_data_reference = f'steps.{i}.output'
+
+    if current_data_reference != flow_pipeline['outputs'][0]['data']:
+        raise ValueError(f"Expected output data reference '{current_data_reference}' does not match provided output data reference '{flow_pipeline['outputs'][0]['data']}'.")
+
+    return Pipeline(steps=pipeline_steps)
