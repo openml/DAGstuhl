@@ -47,11 +47,24 @@ def _column_transformer_to_flow(pipeline_steps, transform, name, data_reference)
 
     params['transformer_columns'] = [columns for (transformer_name, transformer, columns) in transformers]
 
-    hyperparams = _encode_hyperparams(pipeline_steps, params)
-
     step_indices = []
-    for transformer_name, transformer, columns in transformers:
-        step_indices.append(_transform_to_flow(pipeline_steps, transformer, transformer_name, None))
+    transformer_special_indices = []
+    transformer_special_names = []
+    transformer_special_types = []
+    for i, (transformer_name, transformer, columns) in enumerate(transformers):
+        if transformer in {'drop', 'passthrough'}:
+            transformer_special_indices.append(i)
+            transformer_special_names.append(transformer_name)
+            transformer_special_types.append(transformer)
+        else:
+            step_indices.append(_transform_to_flow(pipeline_steps, transformer, transformer_name, None))
+
+    if transformer_special_indices:
+        params['transformer_special_indices'] = transformer_special_indices
+        params['transformer_special_names'] = transformer_special_names
+        params['transformer_special_types'] = transformer_special_types
+
+    hyperparams = _encode_hyperparams(pipeline_steps, params)
 
     hyperparams['transformers'] = {
         'type': 'STEP',
@@ -269,15 +282,21 @@ def _feature_union_from_flow(flow_steps, step, transform_class):
 
 
 def _column_transformer_from_flow(flow_steps, step, transform_class):
+    # This also makes instances of all transformers referenced into flow steps.
     params = _decode_hyperparams(flow_steps, step['hyperparams'])
 
     transformer_columns = params.pop('transformer_columns')
 
-    params['transformers'] = [
-        (flow_steps[step_index]['name'], transformer, columns)
-        for step_index, transformer, columns
-        in zip(step['hyperparams']['transformers']['data'], params['transformers'], transformer_columns)
+    transformers_with_names = [
+        (flow_steps[step_index]['name'], transformer)
+        for step_index, transformer
+        in zip(step['hyperparams']['transformers']['data'], params['transformers'])
     ]
+
+    for special_index, special_name, special_type in zip(params.get('transformer_special_indices', []), params.get('transformer_special_names', []), params.get('transformer_special_types', [])):
+        transformers_with_names.insert(special_index, (special_name, special_type))
+
+    params['transformers'] = [(name, transformer, columns) for (name, transformer), columns in zip(transformers_with_names, transformer_columns)]
 
     return _transform_instance(transform_class, params)
 
