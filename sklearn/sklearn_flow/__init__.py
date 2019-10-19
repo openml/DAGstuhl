@@ -322,6 +322,7 @@ def _transform_from_flow_step(flow_steps, step):
         transform_class = getattr(module_, class_name)
         return _transform_from_class(flow_steps, step, transform_class)
     elif step['type'] == 'SUBPIPELINE':
+        # TODO: If this is just a sub-pipeline reference and not an embedded pipeline, it should resolve it first.
         return from_flow(step['pipeline'])
     else:
         raise ValueError(f"Invalid step type: {step['type']}")
