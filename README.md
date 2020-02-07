@@ -14,14 +14,15 @@ is most suitable for a concrete use case (JSON, YAML, ProtoBuf, etc.).
 
 * The pipeline language tries to strike the right balance between complexity and generality. It is
   a simple DAG description language where steps are not fully specified but are left to a particular
-  programming language and runtime to define. Encoding of hyper-parameters is left out of this language as well.
+  programming language/runtime/step type to define. Encoding of hyper-parameter constants is left
+  out of this language as well.
 * Similarly, when designing a pipeline language the question is how much logic can connections themselves
   have. Do we want to support some basic operations on values as they are passed between steps. This
   pipeline language provides a narrow support here with idea that most other operations should be described
   as steps themselves.
 * The pipeline language allows additional non-standard properties everywhere. Even in cases where just a list
   of strings would generally be enough, we use a list of dicts so that additional properties can be added
-  if a particular programming language or runtime wants to add more information.
+  if a particular programming language/runtime/step type wants to add more information.
 * The pipeline language connects outputs to inputs using *data references*. Those data references can represent
   output values to be connected, but also connecting underlying step implementations themselves. The latter
   provides support for higher-order steps which take other steps as inputs.
