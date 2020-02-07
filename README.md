@@ -14,7 +14,7 @@ is most suitable for a concrete use case (JSON, YAML, ProtoBuf, etc.).
 
 * The pipeline language tries to strike the right balance between complexity and generality. It is
   a simple DAG description language where steps are not fully specified but are left to a particular
-  programming language and runtime to define. Encoding of hyper-parameters is left of this language as well.
+  programming language and runtime to define. Encoding of hyper-parameters is left out of this language as well.
 * Similarly, when designing a pipeline language the question is how much logic can connections themselves
   have. Do we want to support some basic operations on values as they are passed between steps. This
   pipeline language provides a narrow support here with idea that most other operations should be described
