@@ -1,4 +1,4 @@
-# flow1 To mdoel
+# flow1 to mdoel
 
 import openml
 import sklearn
@@ -8,8 +8,8 @@ import jsonschema
 import json
 
 
-
-flow = openml.flows.get_flow(16347)
+flow_id = 1634700
+flow = openml.flows.get_flow(flow_id)
 s = openml.extensions.sklearn.extension.SklearnExtension()
 model = s.flow_to_model(flow)
 print(model)
