@@ -22,7 +22,7 @@ flow2['description'] = flow1['oml:description']
 flow2['upload_date'] = flow1['oml:upload_date']
 flow2['language'] = flow1['oml:language']
 flow2['dependencies'] = flow1['oml:dependencies']
-
+flow2['class_name'] = flow1['oml:class_name']
 # Making steps
 # todo loop here after first entry
 flow2['steps'] = []
