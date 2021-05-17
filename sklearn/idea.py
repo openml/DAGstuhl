@@ -12,7 +12,7 @@ flow1 = a['oml:flow']
 print(json.dumps(flow1, allow_nan=False, ensure_ascii=False, indent=2))
 
 flow2 = dict()
-flow2['$schema']: str("http://json-schema.org/draft-04/schema")
+flow2['schema'] = str("http://json-schema.org/draft-04/schema")
 flow2['id'] = flow1['oml:id']
 flow2['uploader'] = flow1['oml:uploader']
 flow2['name'] = flow1['oml:name']
